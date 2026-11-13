@@ -1,0 +1,2473 @@
+/* Brewse interface.
+   Principles: type and spacing do the work. Controls are plain text, and the
+   active one is simply brighter. Hairlines separate; nothing is boxed, glowing
+   or coloured. The only colour comes from the sidebar picture and the pages. */
+
+:root {
+  --sidebar: 264px;
+  --panel: 8px;
+  --toolbar: 44px;
+  --radius-card: 10px;
+  --inset-w: 320px;
+  --inset-h: 218px;
+
+  --font: -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  --mono: 'SF Mono', ui-monospace, Menlo, monospace;
+
+  --tint: rgba(246, 246, 247, 0.3);
+  --card-bg: #ffffff;
+  --ink: rgba(0, 0, 0, 0.88);
+  --ink-2: rgba(0, 0, 0, 0.56);
+  --ink-3: rgba(0, 0, 0, 0.36);
+  --hover: rgba(0, 0, 0, 0.045);
+  --press: rgba(0, 0, 0, 0.08);
+  --hairline: rgba(0, 0, 0, 0.1);
+  --bad: #b3261e;
+  --panel-bg: rgba(255, 255, 255, 0.74);
+  --command-bg: rgba(255, 255, 255, 0.92);
+  --scrim: rgba(0, 0, 0, 0.12);
+  --card-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.14), 0 8px 30px rgba(0, 0, 0, 0.1);
+  /* A surface that sits above the page: the dock's panel. */
+  --raised: #ffffff;
+  --raised-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.16), 0 2px 6px rgba(0, 0, 0, 0.06), 0 18px 44px -10px rgba(0, 0, 0, 0.28);
+  /* The one gentle colour: it means work is in progress, or has just arrived. */
+  --live: #4a78d6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tint: rgba(10, 10, 11, 0.5);
+    --card-bg: #111112;
+    --ink: rgba(255, 255, 255, 0.92);
+    --ink-2: rgba(255, 255, 255, 0.56);
+    --ink-3: rgba(255, 255, 255, 0.34);
+    --hover: rgba(255, 255, 255, 0.06);
+    --press: rgba(255, 255, 255, 0.1);
+    --hairline: rgba(255, 255, 255, 0.1);
+    --bad: #f08a80;
+    --panel-bg: rgba(17, 17, 18, 0.8);
+    --command-bg: rgba(22, 22, 23, 0.94);
+    --scrim: rgba(0, 0, 0, 0.42);
+    --card-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.09), 0 16px 50px rgba(0, 0, 0, 0.5);
+    --raised: #1d1d1f;
+    --raised-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.14), 0 2px 6px rgba(0, 0, 0, 0.3), 0 20px 48px -10px rgba(0, 0, 0, 0.7);
+    --live: #9db9ff;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  font: 400 13px/1.45 var(--font);
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+button {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: default;
+}
+
+kbd {
+  font: 400 11px var(--font);
+  color: var(--ink-3);
+}
+
+/* A control that is just a word. Dim until it is the current choice or under the pointer. */
+.text-btn {
+  color: var(--ink-3);
+  transition: color 0.12s;
+}
+
+.text-btn:hover:not(:disabled),
+.text-btn.on {
+  color: var(--ink);
+}
+
+.text-btn:disabled {
+  opacity: 0.45;
+}
+
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--ink-3);
+  transition: color 0.12s, background 0.12s;
+}
+
+.icon-btn:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.icon-btn:disabled {
+  opacity: 0.4;
+}
+
+/* ---- frame and sidebar --------------------------------------------------------- */
+
+.chrome {
+  position: fixed;
+  inset: 0;
+  /* A light tint only: the desktop behind the window colours the frame. */
+  background: var(--tint);
+}
+
+/* Window buttons: always coloured. Their symbols appear when the pointer is over the group, as on macOS. */
+.lights {
+  flex: none;
+  display: flex;
+  gap: 8px;
+}
+
+.light {
+  width: 12px;
+  height: 12px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.22);
+}
+
+.light-close {
+  background: #ff5f57;
+}
+
+.light-min {
+  background: #febc2e;
+}
+
+.light-zoom {
+  background: #28c840;
+}
+
+.light svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.6);
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  opacity: 0;
+}
+
+.lights:hover .light svg {
+  opacity: 1;
+}
+
+.light:active {
+  filter: brightness(0.85);
+}
+
+.toolbar .lights {
+  margin: 0 14px 0 6px;
+}
+
+/* A row is a line of text. The one you are looking at is brighter and sits on the faintest ground. */
+.row {
+  position: relative;
+  width: 100%;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: var(--ink-2);
+  text-align: left;
+  transition: color 0.1s, background 0.1s;
+}
+
+.row:hover {
+  color: var(--ink);
+}
+
+.row.active {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.row.asleep,
+.row.quiet {
+  color: var(--ink-3);
+}
+
+.row.quiet:hover {
+  color: var(--ink-2);
+}
+
+/* A task whose outcome you have not looked at yet stands out by being brighter, nothing more. */
+.row.task.unread {
+  color: var(--ink);
+}
+
+.row-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  mask-image: linear-gradient(to right, #000 calc(100% - 16px), transparent);
+}
+
+.row-meta {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.row-meta.live {
+  color: var(--live);
+}
+
+.row-meta.pulse {
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+.row-meta.strong {
+  color: var(--ink);
+}
+
+.row-meta.bad {
+  color: var(--bad);
+}
+
+.row-x {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  display: none;
+  place-items: center;
+  border-radius: 4px;
+  color: var(--ink-3);
+}
+
+.row:hover .row-x {
+  display: grid;
+}
+
+.row:hover .row-meta {
+  display: none;
+}
+
+.row-x:hover {
+  color: var(--ink);
+  background: var(--press);
+}
+
+.favicon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+}
+
+.favicon img {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.row:not(.active):not(:hover) .favicon img {
+  opacity: 0.7;
+}
+
+/* A site with no icon gets its initial. */
+.favicon-blank {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--ink-3);
+}
+
+.favicon.loading {
+  animation: breathe 1s ease-in-out infinite;
+}
+
+/* A tab a task is acting on: a thin line at its edge, in the working colour. */
+.row.busy::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 1.5px;
+  border-radius: 1px;
+  background: var(--live);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+/* ---- page card ---------------------------------------------------------------- */
+
+.card {
+  position: absolute;
+  top: 8px;
+  left: var(--sidebar);
+  right: var(--panel);
+  bottom: 8px;
+  border-radius: var(--radius-card);
+  box-shadow: var(--card-shadow);
+  background: var(--card-bg);
+  overflow: hidden;
+}
+
+.toolbar {
+  height: var(--toolbar);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 14px 0 8px;
+  -webkit-app-region: no-drag;
+}
+
+/* The window is moved by its empty parts only: the frame around the card and the gap in the top row.
+   Nothing that can be clicked ever sits inside one of these, because a drag area takes every click. */
+.drag {
+  -webkit-app-region: drag;
+}
+
+.frame-drag {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+}
+
+.toolbar-gap {
+  flex: 1 1 24px;
+  min-width: 24px;
+  align-self: stretch;
+}
+
+/* The address is text, not a field: the domain is bright, the path is dim. */
+.url {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  margin: 0 10px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.url-host {
+  flex: none;
+  color: var(--ink);
+}
+
+.url-sep {
+  flex: none;
+  color: var(--ink-3);
+}
+
+.url-part {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ink-3);
+}
+
+.url-placeholder {
+  color: var(--ink-3);
+}
+
+/* Tabs and tasks are words in the toolbar. Tabs run from the left; tasks sit on the right. */
+.words {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.words.tabs {
+  flex: 0 1 auto;
+  margin: 0 0 0 8px;
+  /* More tabs than fit get shorter names, then run out at the right; the overview shows them all. */
+  overflow: hidden;
+}
+
+.words.tasks {
+  flex: none;
+  max-width: 44%;
+  padding-left: 10px;
+  border-left: 0.5px solid var(--hairline);
+}
+
+.words.tasks:not(:has(*)) {
+  display: none;
+}
+
+.word {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 40px;
+  max-width: 172px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 9px;
+  border-radius: 6px;
+  color: var(--ink-3);
+  /* Choosing a tab unfolds its name into its address; the one you left folds back. */
+  transition: max-width 0.34s cubic-bezier(0.2, 0.8, 0.2, 1), color 0.14s, background 0.14s;
+}
+
+.word:hover {
+  color: var(--ink-2);
+  background: var(--hover);
+}
+
+.word.tab.current {
+  flex-shrink: 0.4;
+  max-width: 540px;
+  color: var(--ink);
+}
+
+.word.tab.current:hover {
+  background: var(--hover);
+}
+
+.word.task {
+  max-width: 230px;
+}
+
+.word.task.unread,
+.word.task.current {
+  color: var(--ink);
+}
+
+.word.asleep {
+  opacity: 0.7;
+}
+
+.word-text {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.word:not(.current):not(:hover) .favicon img {
+  opacity: 0.6;
+}
+
+/* The close control lies over the end of the word, so nothing moves when it appears. */
+.word-x {
+  position: absolute;
+  top: 5px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  color: var(--ink-3);
+  background: var(--card-bg);
+  box-shadow: -6px 0 6px var(--card-bg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s, color 0.12s;
+}
+
+.word:hover .word-x,
+.over-name:hover .word-x {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.word-x:hover {
+  color: var(--ink);
+}
+
+/* A tab a task is acting on: a thin line under its word, in the working colour. */
+.word.busy::after {
+  content: '';
+  position: absolute;
+  left: 9px;
+  right: 9px;
+  bottom: 2px;
+  height: 1.5px;
+  border-radius: 1px;
+  background: var(--live);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.word-new {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* The overview: every tab as a picture of its page, every task as a line. */
+.overview {
+  position: absolute;
+  inset: var(--toolbar) 0 0 0;
+  display: flex;
+  gap: 44px;
+  padding: 26px 36px 30px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.over-col {
+  flex: 1;
+  min-width: 0;
+}
+
+.over-col.side {
+  flex: none;
+  width: 300px;
+}
+
+.over-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.over-col.side .over-label {
+  margin: 0 8px 8px;
+}
+
+.over-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 24px 22px;
+  align-items: start;
+}
+
+.over-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  animation: rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i) * 40ms);
+}
+
+.over-thumb {
+  aspect-ratio: 16 / 10;
+  border-radius: 8px;
+  background-color: var(--hover);
+  background-size: cover;
+  background-position: top center;
+  box-shadow: 0 0 0 0.5px var(--hairline);
+  transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.24s;
+}
+
+.over-thumb.blank {
+  display: grid;
+  place-items: center;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.over-card:hover .over-thumb {
+  transform: translateY(-3px);
+  box-shadow: 0 0 0 0.5px var(--ink-3), 0 16px 34px -14px rgba(0, 0, 0, 0.45);
+}
+
+.over-name {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--ink-2);
+}
+
+.over-card:hover .over-name {
+  color: var(--ink);
+}
+
+.over-name .word-x {
+  top: 0;
+  right: 0;
+}
+
+.over-empty {
+  margin: 0 8px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.over-foot {
+  display: flex;
+  gap: 18px;
+  margin: 22px 8px 0;
+  padding-top: 14px;
+  border-top: 0.5px solid var(--hairline);
+  font-size: 12px;
+}
+
+.toolbar-nav {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: 14px;
+}
+
+.nav-rule {
+  width: 0.5px;
+  height: 12px;
+  background: var(--hairline);
+}
+
+/* While the agent works on the page in view, a hairline runs under the toolbar. */
+/* A page that is being worked on: a border runs round it for as long as the work goes on.
+   The page itself is drawn a few pixels smaller to leave room (the main process does that),
+   and a brighter stretch travels along the border so it reads as activity, not decoration. */
+@property --turn {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.card.working::before,
+.tile.working::before {
+  content: '';
+  position: absolute;
+  inset: var(--toolbar) 0 0 0;
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+  background: conic-gradient(
+    from var(--turn),
+    color-mix(in srgb, var(--live) 38%, transparent) 0deg,
+    var(--live) 70deg,
+    color-mix(in srgb, var(--live) 38%, transparent) 150deg,
+    color-mix(in srgb, var(--live) 38%, transparent) 360deg
+  );
+  animation: turn 3.6s linear infinite;
+  pointer-events: none;
+}
+
+/* Waiting for you: the border holds still. */
+.card.working.waiting::before {
+  animation: none;
+  background: color-mix(in srgb, var(--live) 70%, transparent);
+}
+
+@keyframes turn {
+  to {
+    --turn: 360deg;
+  }
+}
+
+/* A new tab: the date, one large field, then what you are likely to want next:
+   your tasks, and the pages you go to as pictures. */
+.start {
+  position: absolute;
+  inset: var(--toolbar) 0 0 0;
+  display: flex;
+  justify-content: center;
+  padding: 0 32px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.start-col {
+  width: 100%;
+  max-width: 760px;
+  padding: clamp(40px, 11vh, 110px) 0 56px;
+  height: max-content;
+}
+
+.start-date {
+  margin-bottom: 14px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.start-input {
+  display: block;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: none;
+  padding: 0 0 16px;
+  border-bottom: 0.5px solid var(--hairline);
+  font: 300 30px/1.25 var(--font);
+  letter-spacing: -0.024em;
+  color: var(--ink);
+  transition: border-color 0.2s ease;
+}
+
+.start-input:focus {
+  border-bottom-color: var(--ink-3);
+}
+
+.start-input::placeholder {
+  color: var(--ink-3);
+}
+
+.start-list {
+  margin: 8px -12px 0;
+}
+
+.start-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  height: 36px;
+  line-height: 36px;
+  padding: 0 12px;
+  border-radius: 7px;
+  color: var(--ink-2);
+}
+
+.start-row.selected {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.start-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+}
+
+.start-detail {
+  flex: none;
+  max-width: 46%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.start-section {
+  margin-top: 38px;
+  animation: rise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.start-section + .start-section {
+  animation-delay: 70ms;
+}
+
+.start-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.start-label .text-btn {
+  font-size: 12px;
+}
+
+.start-example {
+  display: block;
+  width: 100%;
+  padding: 9px 0;
+  border-bottom: 0.5px solid var(--hairline);
+  text-align: left;
+  font-size: 14px;
+  color: var(--ink-2);
+  transition: color 0.12s;
+}
+
+.start-example:hover {
+  color: var(--ink);
+}
+
+/* Pages you go to, as pictures of how they looked when you were last there. */
+.start-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px 18px;
+  margin-top: 12px;
+}
+
+.start-card {
+  display: block;
+  min-width: 0;
+  text-align: left;
+  animation: rise 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(90ms + var(--i) * 30ms);
+}
+
+.start-thumb {
+  aspect-ratio: 16 / 10;
+  border-radius: 8px;
+  background-color: var(--hover);
+  background-size: cover;
+  background-position: top center;
+  box-shadow: 0 0 0 0.5px var(--hairline);
+  transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.24s;
+}
+
+.start-thumb.blank {
+  display: grid;
+  place-items: center;
+  font: 200 34px var(--font);
+  color: var(--ink-3);
+}
+
+.start-card:hover .start-thumb {
+  transform: translateY(-3px);
+  box-shadow: 0 0 0 0.5px var(--ink-3), 0 16px 34px -14px rgba(0, 0, 0, 0.45);
+}
+
+.start-card-title {
+  margin-top: 9px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.start-card:hover .start-card-title {
+  color: var(--ink);
+}
+
+.start-card-host {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.start-settings {
+  position: absolute;
+  right: 22px;
+  bottom: 16px;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .start-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* A task as a line: what was asked, what came of it, and where it stands or when it was.
+   Used on the Tasks page and on a new tab. */
+.task-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 11px 0;
+  border-bottom: 0.5px solid var(--hairline);
+}
+
+.task-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  color: var(--ink-2);
+  transition: color 0.12s;
+}
+
+.task-row:hover .task-title,
+.task-row.unread .task-title,
+.task-row.live .task-title {
+  color: var(--ink);
+}
+
+.task-line {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.task-page {
+  flex: none;
+}
+
+.task-page::after {
+  content: '·';
+  margin-left: 8px;
+}
+
+.task-outcome {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.task-meta {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding-top: 2px;
+  font-size: 12px;
+}
+
+.task-remove {
+  display: none;
+}
+
+.task-row:hover .task-remove {
+  display: inline;
+}
+
+/* Under the pointer, the time gives way to Remove. */
+.task-row:hover .task-meta:has(.task-remove) .row-meta {
+  display: none;
+}
+
+/* The Tasks page: everything asked of Brewse, kept. Now first, then by day. */
+.tasks-page {
+  position: absolute;
+  inset: var(--toolbar) 0 0 0;
+  display: flex;
+  justify-content: center;
+  padding: 0 32px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  animation: rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  user-select: none;
+}
+
+.tasks-col {
+  width: 100%;
+  max-width: 760px;
+  padding: clamp(28px, 7vh, 64px) 0 56px;
+  height: max-content;
+}
+
+.tasks-head {
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+  padding-bottom: 14px;
+  border-bottom: 0.5px solid var(--hairline);
+  font-size: 12px;
+}
+
+.tasks-search {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  padding: 0;
+  font: 300 24px/1.25 var(--font);
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.tasks-search::placeholder {
+  color: var(--ink-3);
+}
+
+.tasks-group {
+  margin-top: 30px;
+}
+
+.tasks-label {
+  margin-bottom: 2px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.tasks-empty {
+  margin: 30px 0 0;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.empty-state {
+  position: absolute;
+  inset: var(--toolbar) 0 0 0;
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+/* A task view: the pages the task is working in, live. The main process draws each page;
+   this is the frame behind it, which carries its name and, while it is being worked on, its border. */
+.tile {
+  position: fixed;
+  z-index: 2;
+  border-radius: var(--radius-card);
+  background: var(--card-bg);
+  box-shadow: 0 0 0 0.5px var(--hairline), 0 14px 40px -12px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.tile.working::before {
+  inset: var(--header) 0 0 0;
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+}
+
+.tile-head {
+  position: relative;
+  height: var(--header);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+
+.tile:not(.primary) .tile-head {
+  padding: 0 8px;
+  font-size: 10.5px;
+}
+
+.tile:not(.primary) .tile-head:hover {
+  color: var(--ink);
+}
+
+.tile-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tile.working .tile-name {
+  color: var(--ink);
+}
+
+.tile-host {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-3);
+}
+
+.tile-head .text-btn {
+  flex: none;
+  margin-left: auto;
+}
+
+.tile-more {
+  position: fixed;
+  z-index: 2;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+/* Chat mode: the page is a small live window at the top right. This frame sits behind it and carries its header. */
+.inset {
+  position: absolute;
+  z-index: 2;
+  right: 14px;
+  top: calc(var(--toolbar) + 6px);
+  width: var(--inset-w);
+  height: var(--inset-h);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 10px;
+  border-radius: var(--radius-card);
+  background: var(--card-bg);
+  box-shadow: 0 0 0 0.5px var(--hairline), 0 14px 40px -10px rgba(0, 0, 0, 0.45);
+  font-size: 11.5px;
+  line-height: 28px;
+}
+
+.inset-host {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-2);
+}
+
+.inset.working .inset-host {
+  color: var(--ink);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+/* ---- conversation --------------------------------------------------------------- */
+
+.panel {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  bottom: 8px;
+  width: calc(var(--panel) - 16px);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-card);
+  background: var(--panel-bg);
+  box-shadow: 0 0 0 0.5px var(--hairline);
+  animation: panel-in 0.2s ease-out;
+  user-select: text;
+}
+
+/* Chat mode: the conversation fills the card under the toolbar, as a centred column. */
+.panel.center {
+  top: var(--toolbar);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: auto;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  animation: none;
+}
+
+.panel.center > * {
+  width: 100%;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Keep the column clear of the right-hand column (floating page and task log). */
+.card.task .panel.center {
+  padding-right: calc(var(--inset-w) + 28px);
+}
+
+/* The task log: each request and what was done for it. It runs below the floating page. */
+.log {
+  /* Placed by the window: under the live pages, in their column. */
+  position: fixed;
+  bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  user-select: text;
+}
+
+.log-head {
+  flex: none;
+  padding: 10px 0 8px;
+  border-top: 0.5px solid var(--hairline);
+  font-size: 12px;
+  color: var(--ink-3);
+  user-select: none;
+}
+
+.card:not(.with-inset) .log-head {
+  border-top: 0;
+  padding-top: 12px;
+}
+
+.log-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.log-empty,
+.log-worker {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.log-worker.running .log-time {
+  color: var(--live);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+/* A sub-agent's steps hang from a hairline, so each one's work reads as a block. */
+.log-part {
+  margin-top: 2px;
+  padding-left: 10px;
+  border-left: 0.5px solid var(--hairline);
+}
+
+.log-none {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+.log-none {
+  padding-left: 12px;
+  border-left: 0.5px solid var(--hairline);
+  line-height: 24px;
+}
+
+/* What the fast model did for the request, under Claude's steps. */
+.log-jev {
+  margin-top: 6px;
+  padding-left: 12px;
+  border-left: 0.5px solid var(--hairline);
+  font-size: 11.5px;
+  line-height: 17px;
+  color: var(--ink-3);
+}
+
+.log-jev-name {
+  margin-right: 6px;
+  color: var(--ink-2);
+}
+
+.log-task + .log-task {
+  margin-top: 14px;
+}
+
+.log-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 4px;
+  font-size: 12.5px;
+}
+
+.log-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink);
+}
+
+.log-time {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.log-time.failed {
+  color: var(--bad);
+}
+
+.panel-head {
+  flex: none;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  user-select: none;
+}
+
+.panel-title {
+  flex: 1;
+  min-width: 0;
+  color: var(--ink-2);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.transcript {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: none;
+}
+
+.panel.center .panel-head,
+.panel.center .transcript {
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+.panel-empty {
+  margin: auto 0;
+  padding-bottom: 60px;
+  color: var(--ink-3);
+  user-select: none;
+}
+
+.panel-empty h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
+.panel-empty p {
+  margin: 0;
+  max-width: 44ch;
+  line-height: 1.55;
+}
+
+.panel.center .panel-empty h2 {
+  font-size: 24px;
+}
+
+/* What you asked is set as a line of its own, like a heading; the answer follows as text. */
+.q {
+  margin: 22px 0 10px;
+  font-size: 16px;
+  line-height: 1.4;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.q:first-child {
+  margin-top: 6px;
+}
+
+.panel.center .q {
+  font-size: 21px;
+  line-height: 1.32;
+  letter-spacing: -0.018em;
+  margin: 34px 0 14px;
+}
+
+.q.long,
+.panel.center .q.long {
+  font-size: 15px;
+  line-height: 1.5;
+  letter-spacing: -0.008em;
+  color: var(--ink-2);
+}
+
+.md {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.panel.center .md {
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.md p,
+.md ul,
+.md ol,
+.md pre,
+.md blockquote {
+  margin: 0 0 10px;
+}
+
+.md ul,
+.md ol {
+  padding-left: 20px;
+}
+
+.md li {
+  margin: 3px 0;
+}
+
+.md li::marker {
+  color: var(--ink-3);
+}
+
+.md li > ul,
+.md li > ol {
+  margin: 3px 0;
+}
+
+.md li.task {
+  list-style: none;
+  margin-left: -18px;
+}
+
+.md-check {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--ink-3);
+  vertical-align: -1px;
+}
+
+.md-check.on {
+  background: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink);
+}
+
+.md-h {
+  margin: 18px 0 6px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.md-h1,
+.md-h2 {
+  font-size: 1.12em;
+}
+
+.md strong {
+  font-weight: 600;
+}
+
+.md s {
+  color: var(--ink-3);
+}
+
+.md hr {
+  height: 0;
+  margin: 14px 0;
+  border: 0;
+  border-top: 0.5px solid var(--hairline);
+}
+
+.md code,
+.md pre,
+.step-detail {
+  font: 12px/1.55 var(--mono);
+  letter-spacing: 0;
+}
+
+.md code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--hover);
+}
+
+.md pre,
+.step-detail {
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: var(--hover);
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.md a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--ink-3);
+  text-decoration-thickness: 0.5px;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.md a:hover {
+  text-decoration-color: var(--ink);
+}
+
+.md blockquote {
+  padding-left: 12px;
+  border-left: 1px solid var(--hairline);
+  color: var(--ink-2);
+}
+
+/* Tables are ruled, not boxed. */
+.md-table {
+  margin: 4px 0 12px;
+  overflow-x: auto;
+}
+
+.md table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.md th,
+.md td {
+  padding: 7px 16px 7px 0;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 0.5px solid var(--hairline);
+}
+
+.md th {
+  font-weight: 400;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.md tr:last-child td {
+  border-bottom: 0;
+}
+
+/* What the agent did: quiet lines, set apart by a rule at the left. */
+.step {
+  border-left: 0.5px solid var(--hairline);
+  padding-left: 12px;
+}
+
+.step-head {
+  width: 100%;
+  min-height: 24px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  text-align: left;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  transition: color 0.12s;
+}
+
+.step-head:hover {
+  color: var(--ink-2);
+}
+
+.step-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.step.run .step-head {
+  color: var(--ink);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.step.error .step-head {
+  color: var(--bad);
+}
+
+.step-note {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.step-detail {
+  margin: 4px 0 8px;
+  max-height: 220px;
+  overflow: auto;
+  color: var(--ink-2);
+}
+
+.step + .md,
+.step + .q {
+  margin-top: 12px;
+}
+
+.md + .step {
+  margin-top: 4px;
+}
+
+.thinking {
+  color: var(--ink-3);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+}
+
+/* A question the agent needs answered before it goes on. */
+.approval {
+  margin: 12px 0;
+  padding: 12px 0;
+  border-top: 0.5px solid var(--hairline);
+  border-bottom: 0.5px solid var(--hairline);
+}
+
+.approval-title {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.approval-summary {
+  margin-top: 2px;
+  color: var(--ink);
+}
+
+.approval-detail {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.approval-actions {
+  display: flex;
+  gap: 18px;
+  margin-top: 10px;
+}
+
+.approval-actions .allow {
+  color: var(--ink);
+}
+
+.approval-answer {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.approval.answered {
+  opacity: 0.6;
+}
+
+.result {
+  margin: 4px 0 2px;
+  font-size: 11.5px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.result.failed,
+/* What a task made: each file as a line, with where it is. */
+.made {
+  margin: 14px 0 6px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--hairline);
+  user-select: none;
+}
+
+.made-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 2px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.made-folder {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+
+.made-label .text-btn {
+  flex: none;
+  margin-left: 16px;
+}
+
+.made-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 5px 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.made-row:hover {
+  color: var(--ink);
+}
+
+.made-name {
+  flex: none;
+  max-width: 55%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.made-place {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.made-show {
+  flex: none;
+  font-size: 12px;
+  visibility: hidden;
+}
+
+.made-row:hover .made-show {
+  visibility: visible;
+}
+
+.msg-error {
+  color: var(--bad);
+}
+
+.msg-error {
+  margin: 8px 0;
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
+.msg-working {
+  margin: 8px 0;
+  font-size: 12.5px;
+  color: var(--ink-3);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+/* Where you type: a ruled area, not a box. The effort choices are words under it. */
+.composer {
+  flex: none;
+  margin: 0 16px 12px;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--hairline);
+}
+
+.panel.center .composer {
+  margin: 0 auto 22px;
+  width: calc(100% - 48px);
+  max-width: 672px;
+}
+
+.composer textarea {
+  display: block;
+  width: 100%;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: none;
+  font: 400 13.5px/1.5 var(--font);
+  letter-spacing: -0.005em;
+  color: var(--ink);
+  padding: 0;
+}
+
+.panel.center .composer textarea {
+  font-size: 15px;
+}
+
+.composer textarea::placeholder {
+  color: var(--ink-3);
+}
+
+.composer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+  font-size: 12px;
+  user-select: none;
+}
+
+.modes {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* ---- settings ------------------------------------------------------------------- */
+
+.settings {
+  gap: 26px;
+  padding-top: 8px;
+  user-select: none;
+}
+
+.set-group h3 {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-3);
+}
+
+.set-row,
+.trust-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 30px;
+}
+
+.set-row + .set-row {
+  border-top: 0.5px solid var(--hairline);
+}
+
+.set-row em,
+.trust-head em {
+  font-style: normal;
+  color: var(--ink-3);
+}
+
+.set-value {
+  color: var(--ink-2);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.set-value.bad,
+.bad-note {
+  color: var(--bad);
+}
+
+.set-value.ok {
+  color: var(--ink);
+}
+
+.set-note,
+.set-empty {
+  margin: 6px 0 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.set-add {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.set-add input:not([type='file']) {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-bottom: 0.5px solid var(--hairline);
+  outline: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink);
+}
+
+.set-add input:focus {
+  border-bottom-color: var(--ink-2);
+}
+
+.art-preview {
+  height: 72px;
+  border-radius: 8px;
+  background-size: cover;
+  background-position: center 30%;
+  box-shadow: 0 0 0 0.5px var(--hairline);
+}
+
+.trust-row {
+  padding: 2px 0 8px;
+}
+
+.meter {
+  height: 1px;
+  background: var(--hairline);
+}
+
+.meter-fill {
+  height: 1px;
+  background: var(--ink);
+}
+
+/* ---- command bar (overlay layer) -------------------------------------------------- */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 18vh;
+  background: var(--scrim);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.overlay.open {
+  opacity: 1;
+}
+
+/* Editing an address happens where the address is: the field takes the place of the tab's word,
+   and what it could mean hangs under it. The page is not dimmed. */
+.overlay.anchored {
+  display: block;
+  padding: 0;
+  background: none;
+}
+
+.overlay.anchored .command {
+  position: absolute;
+  border-radius: 10px;
+  background: var(--raised);
+  backdrop-filter: none;
+  box-shadow: var(--raised-shadow);
+  transform: none;
+  transition: none;
+}
+
+.overlay.anchored .command-input {
+  height: 36px;
+  padding: 0 12px;
+}
+
+.overlay.anchored .command-input input {
+  font-size: 13px;
+  letter-spacing: -0.005em;
+}
+
+.overlay.anchored .suggestion {
+  height: 32px;
+  padding: 0 12px;
+}
+
+.overlay.anchored .suggestion-title {
+  font-size: 13px;
+}
+
+.command {
+  width: min(620px, calc(100vw - 80px));
+  border-radius: 12px;
+  background: var(--command-bg);
+  backdrop-filter: blur(40px) saturate(1.4);
+  box-shadow: 0 0 0 0.5px var(--hairline), 0 30px 80px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  transform: translateY(-4px);
+  transition: transform 0.16s ease-out;
+}
+
+.overlay.open .command {
+  transform: none;
+}
+
+.command-input {
+  height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 18px;
+}
+
+.command-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  font: 400 17px var(--font);
+  letter-spacing: -0.012em;
+  color: var(--ink);
+}
+
+.command-input input::placeholder {
+  color: var(--ink-3);
+}
+
+.command-hint {
+  flex: none;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.suggestions {
+  padding: 6px 0 8px;
+  border-top: 0.5px solid var(--hairline);
+}
+
+.suggestion {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 18px;
+  color: var(--ink-2);
+}
+
+.suggestion.selected {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.suggestion-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+}
+
+.suggestion-detail {
+  flex: 0 1 auto;
+  margin-left: auto;
+  max-width: 50%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: right;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+/* ---- the dock (overlay layer): how a task is given, and how its outcome is delivered ------------- */
+
+/* The dock: the layer above the bottom of the page. Its parts come and go by themselves. */
+.dock {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  user-select: text;
+}
+
+.dock.live {
+  pointer-events: auto;
+}
+
+/* Behind the command bar the dock keeps out of sight. */
+.dock.covered {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* While a task runs: one thin line along the bottom, with a soft light travelling across it. */
+.dock-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  opacity: 0;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--live) 16%, transparent);
+  transition: opacity 0.4s ease;
+}
+
+.dock-rail.on {
+  opacity: 1;
+}
+
+.dock-rail::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 34%;
+  background: linear-gradient(to right, transparent, var(--live), transparent);
+}
+
+/* The light travels only while the line is showing, so nothing animates out of sight. */
+.dock-rail.on::after {
+  animation: sweep 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+/* Just finished: the line rests, fully lit, for a moment before it goes. */
+.dock-rail.resting {
+  background: color-mix(in srgb, var(--live) 55%, transparent);
+}
+
+.dock-rail.resting::after {
+  display: none;
+}
+
+/* The panel: one solid surface for the field, the detail of a running task, and a question.
+   It comes up from below the edge in one firm move and leaves the same way, faster. */
+.dock-panel {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  width: min(680px, calc(100% - 40px));
+  padding: 17px 20px 11px;
+  border-radius: 14px;
+  background: var(--raised);
+  box-shadow: var(--raised-shadow);
+  opacity: 0;
+  transform: translate(-50%, calc(100% + 28px));
+  transition: transform 0.22s cubic-bezier(0.5, 0, 0.9, 0.4), opacity 0.16s ease 0.06s;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.dock-panel.up {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  transition: transform 0.4s cubic-bezier(0.2, 0.9, 0.2, 1), opacity 0.1s ease;
+  pointer-events: auto;
+}
+
+/* The sheet: fades and rises as one piece. */
+.dock-sheet {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  opacity: 0;
+  transform: translateY(26px);
+  transition: opacity 0.3s ease, transform 0.62s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.dock-sheet.on {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+/* The ground the sheet stands on: the page, blurred, coming in from clear at the top so there is no edge. */
+.dock-ground {
+  position: absolute;
+  inset: 0;
+  --fade: 96px;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--card-bg) 97%, transparent) var(--fade));
+  backdrop-filter: blur(36px) saturate(1.3);
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--fade));
+}
+
+/* When the sheet grows into the task it becomes solid, so the change underneath is not seen. */
+.dock-solid {
+  position: absolute;
+  inset: 0;
+  background: var(--card-bg);
+  opacity: 0;
+  transition: opacity 0.36s ease;
+}
+
+.dock.is-expanding .dock-solid {
+  opacity: 1;
+}
+
+.dock-body {
+  position: relative;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 28px 18px;
+  transition: transform 0.44s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dock-input {
+  display: block;
+  width: 100%;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: none;
+  padding: 0;
+  font: 400 17px/1.4 var(--font);
+  letter-spacing: -0.012em;
+  color: var(--ink);
+}
+
+/* Between where a request goes and how much effort it gets. */
+.modes-rule {
+  width: 0.5px;
+  height: 12px;
+  margin: 0 4px;
+  background: var(--hairline);
+}
+
+.dock-input::placeholder {
+  color: var(--ink-3);
+}
+
+.dock-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 13px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--hairline);
+  font-size: 12px;
+  user-select: none;
+}
+
+.dock-row.start {
+  justify-content: flex-start;
+}
+
+.dock-label {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.dock-ask {
+  margin-top: 2px;
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.dock-detail {
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Hovering the line: exactly what is going on. */
+.watch + .watch {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 0.5px solid var(--hairline);
+}
+
+.watch-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.watch-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.watch-actions {
+  flex: none;
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  user-select: none;
+}
+
+.watch-steps,
+.watch-outcome {
+  margin-top: 8px;
+  padding-left: 12px;
+  border-left: 0.5px solid var(--hairline);
+  font-size: 12.5px;
+  line-height: 24px;
+  color: var(--ink-3);
+}
+
+.watch-step {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.watch-step.now {
+  color: var(--live);
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+.watch-step.bad,
+.watch-outcome.bad {
+  color: var(--bad);
+}
+
+.watch-outcome {
+  color: var(--ink-2);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The result: the outcome of a task, set like the opening of an article, over the lower half of the page. */
+.dock.is-result .dock-body,
+.dock.is-expanding .dock-body {
+  height: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  padding-top: 104px;
+  padding-bottom: 0;
+}
+
+.sheet-head {
+  /* Above the text, so its controls can be clicked while everything is still rising into place. */
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  font-size: 12px;
+  user-select: none;
+}
+
+.sheet-actions {
+  display: flex;
+  gap: 18px;
+}
+
+.sheet {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: 18px;
+  /* The text runs out softly at the bottom: there is more, and scrolling reaches it. */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 64px), transparent);
+}
+
+.sheet-request {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sheet-headline {
+  margin: 10px 0 0;
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1.18;
+  letter-spacing: -0.028em;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.sheet-rule {
+  height: 0.5px;
+  margin: 20px 0 16px;
+  background: var(--hairline);
+  transform-origin: left;
+}
+
+.sheet-body .md {
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.sheet-sources {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 12px 0 16px;
+  border-top: 0.5px solid var(--hairline);
+  font-size: 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.dock.is-expanding .sheet {
+  mask-image: none;
+}
+
+/* Each part of the result arrives in turn, a moment after the sheet itself. */
+.dock.is-result .dock-sheet.on .rise {
+  animation: rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(180ms + var(--i) * 85ms);
+}
+
+.dock.is-result .dock-sheet.on .sheet-rule.rise {
+  animation-name: draw;
+  animation-duration: 0.9s;
+}
+
+/* The controls only fade in: something you may reach for should not be moving. */
+.dock.is-result .dock-sheet.on .sheet-head.rise {
+  animation-name: appear;
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Development screenshots only: a stand-in for the desktop seen through the window material. */
+html.devshot body {
+  background: linear-gradient(135deg, #c9d6e8, #e9dccb 55%, #d5d9e2);
+}
+
+@media (prefers-color-scheme: dark) {
+  html.devshot body {
+    background: linear-gradient(135deg, #1c2536, #3a2a22 55%, #15161b);
+  }
+}
+
+/* ---- motion --------------------------------------------------------------------- */
+
+@keyframes pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(440%);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes draw {
+  from {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

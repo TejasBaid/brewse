@@ -1,0 +1,6 @@
+{
+  "name": "brewse",
+  "version": "0.1.0",
+  "description": "Browse the web from a coding session through Brewse: read pages, act on sites, test web apps, with a fast grounding model and saved routines.",
+  "license": "MIT"
+}
